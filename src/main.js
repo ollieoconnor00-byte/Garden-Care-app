@@ -149,9 +149,103 @@ function render(){
 function showPlant(name){const p=plants.find(x=>x.name===name);openModal(`<button class="close" id="close">×</button><div class="big">${p.icon}</div><h2>${p.name}</h2>${[['💧 Water',p.water],['✂️ Propagate',p.propagate],['✂️ Prune',p.prune],['🌱 Feed',p.feed],['📝 Notes',p.notes]].map(x=>`<div class="care"><b>${x[0]}</b><p>${x[1]}</p></div>`).join('')}`)}
 function showSettings(){openModal(`<button class="close" id="close">×</button><h2>Settings</h2><p>Choose which plants appear in your five-day list.</p><div class="checks">${plants.map(p=>`<label><input type="checkbox" data-p="${p.name}" ${settings.selected.includes(p.name)?'checked':''}> ${p.icon} ${p.name}</label>`).join('')}</div><button class="save" id="save">Save settings</button>`);root.querySelector('#save').onclick=()=>{settings.selected=[...root.querySelectorAll('[data-p]:checked')].map(x=>x.dataset.p);localStorage.setItem(STORAGE,JSON.stringify(settings));document.querySelector('#modal').classList.add('hidden');render()}}
 function openModal(html){const m=document.querySelector('#modal');m.innerHTML=`<div class="modalbox">${html}</div>`;m.classList.remove('hidden');document.querySelector('#close').onclick=()=>m.classList.add('hidden');m.onclick=e=>{if(e.target===m)m.classList.add('hidden')}}
-async function enableNotifications(){if(!('Notification' in window)){alert('This browser does not support notifications.');return}const p=await Notification.requestPermission();if(p==='granted'){settings.notifications=true;localStorage.setItem(STORAGE,JSON.stringify(settings));new Notification('Garden reminders enabled 🌿',{body:'The app will check for 3-day and same-day reminders when it is opened or brought back to the foreground.'});render()}else alert('Notifications were not allowed. Enable them in your browser settings.')}
-function checkNotifications(){if(!('Notification'in window)||Notification.permission!=='granted')return;const sent=load(NOTIFY,{});[3,0].forEach(i=>{const ts=tasksFor(i).filter(t=>!done[t.id]);if(!ts.length)return;const d=dateAt(i), k=`${iso(d)}|${i}`;if(sent[k])return;new Notification(i===0?'Garden jobs today 🌿':'Garden jobs in 3 days 🌱',{body:`${ts.length} garden job${ts.length===1?'':'s'} scheduled for ${fmt(d)}.`});sent[k]=Date.now()});localStorage.setItem(NOTIFY,JSON.stringify(sent))}
+async function enableNotifications(){
+  try{
+    if(!('serviceWorker' in navigator)){
+      alert('This browser does not support background notifications.');
+      return;
+    }
 
+    if(!('PushManager' in window)){
+      alert('This browser does not support push notifications.');
+      return;
+    }
+
+    const permission=await Notification.requestPermission();
+
+    if(permission!=='granted'){
+      alert('Notifications were not allowed. Enable them in your browser settings.');
+      return;
+    }
+
+    const registration=await navigator.serviceWorker.register('/sw.js');
+
+    const keyResponse=await fetch('/vapid-public-key');
+
+    if(!keyResponse.ok){
+      throw new Error('Could not get the notification server key.');
+    }
+
+    const {publicKey}=await keyResponse.json();
+
+    if(!publicKey){
+      throw new Error('The VAPID public key is missing on the server.');
+    }
+
+    let subscription=await registration.pushManager.getSubscription();
+
+    if(!subscription){
+      subscription=await registration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(publicKey)
+      });
+    }
+
+    const response=await fetch('/subscribe',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify(subscription)
+    });
+
+    if(!response.ok){
+      throw new Error('The server could not save the notification subscription.');
+    }
+
+    settings.notifications=true;
+    localStorage.setItem(
+      STORAGE,
+      JSON.stringify(settings)
+    );
+
+    alert(
+      'Garden notifications are now enabled 🌿\n\n' +
+      'You can receive reminders even when the website is closed.'
+    );
+
+    render();
+
+  }catch(error){
+    console.error('Notification setup failed:',error);
+
+    alert(
+      'Notifications could not be enabled.\n\n' +
+      error.message
+    );
+  }
+}
+
+
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat(
+    (4-base64String.length%4)%4
+  );
+
+  const base64=(base64String+padding)
+    .replace(/-/g,'+')
+    .replace(/_/g,'/');
+
+  const rawData=window.atob(base64);
+
+  return Uint8Array.from(
+    [...rawData].map(char=>char.charCodeAt(0))
+  );
+}
+
+
+function checkNotifications(){
+}
 render();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkNotifications();render()}});
