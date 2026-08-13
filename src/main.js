@@ -1,5 +1,5 @@
 import './style.css';
-
+const root = document.getElementById('root');
 const plants = [
 ['Hydrangea','🌸','Keep evenly moist while actively growing. Check every 2–3 days in warm/dry weather.','Softwood cuttings late spring–early summer; semi-ripe cuttings in summer.','Lightly prune after flowering; pruning depends on mophead/lacecap type.','Feed in spring and early summer with hydrangea fertiliser.','Mulch around roots, not against stems.'],
 ['Peruvian Lily (Alstroemeria)','🌺','Water when the top few centimetres dry; increase in hot weather.','Divide established clumps in autumn or early spring.','Remove spent flower stems at the base and remove yellow or damaged foliage.','Feed in spring and after flowering.','Avoid waterlogged soil.'],
