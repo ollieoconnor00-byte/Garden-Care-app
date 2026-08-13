@@ -152,15 +152,16 @@ app.post("/send", async (req, res) => {
 
 const distPath = path.join(__dirname, "dist");
 
+
 app.use(express.static(distPath));
 
-app.use((req, res) => {
-  res.sendFile(
-    path.join(distPath, "index.html")
-  );
+app.get("/", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
-
+app.use((req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(
